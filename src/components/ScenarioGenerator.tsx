@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Wand, AlertCircle } from 'lucide-react';
+import { Wand, AlertCircle, Info, Lightbulb, Loader } from 'lucide-react';
 import { toast } from 'sonner';
 import { useGame } from './GameContext';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -273,18 +273,24 @@ Return ONLY valid JSON like this (add additional text or explanations inside the
       <h3 className="text-xl font-semibold mb-4">Generate New Scenario</h3>
       
       {error && (
-        <Alert variant="destructive" className="mb-4">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Error</AlertTitle>
+        <Alert variant="info" className="mb-4">
+          <Info className="h-5 w-5" />
+          <AlertTitle>Connection Issue</AlertTitle>
           <AlertDescription>
-            {error}
-            <div className="mt-2">
+            <p className="mb-2">We couldn't connect to the AI service. This could be due to:</p>
+            <ul className="list-disc ml-5 mb-3">
+              <li>Invalid or expired API key</li>
+              <li>Network connectivity problems</li>
+              <li>API service maintenance</li>
+            </ul>
+            <div className="mt-3">
               <Button 
-                variant="outline" 
+                variant="default" 
                 size="sm" 
                 onClick={generateSampleScenario}
-                className="mr-2"
+                className="w-full"
               >
+                <Lightbulb className="h-4 w-4 mr-2" />
                 Use Sample Scenario Instead
               </Button>
             </div>
@@ -338,8 +344,17 @@ Return ONLY valid JSON like this (add additional text or explanations inside the
         disabled={isGenerating}
         className="w-full"
       >
-        <Wand className="h-4 w-4 mr-2" />
-        {isGenerating ? 'Generating...' : 'Generate New Scenario'}
+        {isGenerating ? (
+          <>
+            <Loader className="h-4 w-4 mr-2 animate-spin" />
+            Generating...
+          </>
+        ) : (
+          <>
+            <Wand className="h-4 w-4 mr-2" />
+            Generate New Scenario
+          </>
+        )}
       </Button>
     </div>
   );
