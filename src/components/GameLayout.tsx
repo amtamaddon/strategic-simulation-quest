@@ -3,7 +3,6 @@ import React, { useState } from 'react';
 import { useGame } from './GameContext';
 import ScenarioCard from './ScenarioCard';
 import DecisionOptions from './DecisionOptions';
-import ResourceDisplay from './ResourceDisplay';
 import HistoryLog from './HistoryLog';
 import StrategicPrinciples from './StrategicPrinciples';
 import ScenarioGenerator from './ScenarioGenerator';
@@ -145,10 +144,6 @@ const GameLayout: React.FC = () => {
           </div>
         </div>
       )}
-      
-      <div className="mb-6">
-        <ResourceDisplay resources={gameState.resources} />
-      </div>
       
       <HistoryLog events={gameState.history} isOpen={showHistory} />
       <StrategicPrinciples principles={gameState.principles} isOpen={showPrinciples} />

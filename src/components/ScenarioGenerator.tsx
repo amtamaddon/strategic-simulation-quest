@@ -49,7 +49,7 @@ const ScenarioGenerator: React.FC<ScenarioGeneratorProps> = ({ onNewScenario }) 
 
 Format it as JSON with these properties:
 {
-  "id": "unique-id",
+  "id": "unique-id-${Date.now()}",
   "title": "Scenario title",
   "year": "Year or time period",
   "leader": "Historical figure name",
@@ -63,11 +63,29 @@ Format it as JSON with these properties:
       "outcomes": {
         "description": "What happens if this choice is made (200 words)",
         "resources": { "military": 10, "economy": -5, "morale": 0, "political": 15 },
-        "nextScenarioId": "result-id",
-        "principle": "strategic-principle"
+        "nextScenarioId": "finale"
       }
     },
-    ...2 more decisions...
+    {
+      "id": "decision-2",
+      "text": "Short decision text for option 2",
+      "description": "Longer explanation of this option",
+      "outcomes": {
+        "description": "What happens if this choice is made (200 words)",
+        "resources": { "military": -5, "economy": 10, "morale": 5, "political": -10 },
+        "nextScenarioId": "finale"
+      }
+    },
+    {
+      "id": "decision-3",
+      "text": "Short decision text for option 3",
+      "description": "Longer explanation of this option",
+      "outcomes": {
+        "description": "What happens if this choice is made (200 words)",
+        "resources": { "military": 0, "economy": 0, "morale": 15, "political": 5 },
+        "nextScenarioId": "finale"
+      }
+    }
   ],
   "historicalOutcome": "What actually happened historically",
   "learningSummary": "A 200-word summary of the key strategic lessons from this scenario, highlighting timeless principles that can be applied to modern leadership and decision-making."
@@ -92,25 +110,45 @@ ONLY return the JSON object with no additional text before or after.`;
       });
 
       if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
+        const errorData = await response.json();
+        console.error('API error details:', errorData);
+        throw new Error(`API error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
       }
 
       const data = await response.json();
+      console.log("API response:", data);
+      
+      if (!data.content || !data.content[0] || !data.content[0].text) {
+        throw new Error('Invalid response format from API');
+      }
+      
       const content = data.content[0].text;
       
       // Parse the JSON response
       // Find the JSON object in the response (in case Claude adds extra text)
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        const scenario = JSON.parse(jsonMatch[0]);
-        onNewScenario(scenario);
-        toast.success('New scenario generated!');
+        try {
+          const scenario = JSON.parse(jsonMatch[0]);
+          
+          // Validate the scenario object has the required fields
+          if (!scenario.id || !scenario.title || !scenario.decisions) {
+            throw new Error('Generated scenario is missing required fields');
+          }
+          
+          onNewScenario(scenario);
+          toast.success('New scenario generated!');
+        } catch (parseError) {
+          console.error('JSON parsing error:', parseError, 'Raw content:', content);
+          throw new Error('Could not parse scenario JSON');
+        }
       } else {
-        throw new Error('Could not parse scenario from response');
+        console.error('No JSON found in response:', content);
+        throw new Error('Could not find JSON in API response');
       }
     } catch (error) {
       console.error('Error generating scenario:', error);
-      toast.error('Failed to generate scenario. Check your API key and try again.');
+      toast.error(`Failed to generate scenario: ${error.message}`);
     } finally {
       setIsGenerating(false);
     }
