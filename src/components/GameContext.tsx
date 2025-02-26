@@ -118,17 +118,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       turn: prevState.turn + 1,
       gameOver: gameOver || false
     }));
-    
-    // Show notification for significant resource changes
-    const significantChange = Object.entries(outcomes.resources || {}).find(([_, value]) => Math.abs(value) >= 15);
-    if (significantChange) {
-      const [resource, value] = significantChange;
-      const resourceName = resource.charAt(0).toUpperCase() + resource.slice(1);
-      const message = value > 0 
-        ? `${resourceName} increased significantly!` 
-        : `${resourceName} decreased significantly!`;
-      toast(message);
-    }
   };
   
   const resetGame = () => {
@@ -153,14 +142,17 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const addCustomScenario = (scenario: any) => {
-    // Prepare the scenario with default next scenario links
+    console.log("Adding custom scenario:", scenario);
+    
+    // Ensure scenario has all required fields
     const preparedScenario = {
       ...scenario,
       decisions: scenario.decisions.map((decision: any) => ({
         ...decision,
         outcomes: {
           ...decision.outcomes,
-          nextScenarioId: decision.outcomes.nextScenarioId || 'finale'
+          nextScenarioId: decision.outcomes.nextScenarioId || 'finale',
+          resources: decision.outcomes.resources || { military: 0, economy: 0, morale: 0, political: 0 }
         }
       }))
     };

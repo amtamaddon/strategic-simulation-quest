@@ -43,56 +43,57 @@ const ScenarioGenerator: React.FC<ScenarioGeneratorProps> = ({ onNewScenario }) 
     }
 
     setIsGenerating(true);
+    toast.info('Generating scenario...');
+    
     try {
-      // Create a prompt for Claude that includes information about what we want
-      const prompt = `Create a historical strategic decision scenario in the format of our strategy game. The scenario should be about ${topic || 'a significant historical military or political decision point'}. Provide a detailed context, situation, and 3 possible decisions with their outcomes. Include a historical outcome section that explains what actually happened.
+      const uniqueId = `custom-${Date.now()}`;
+      const prompt = `Create a historical strategic decision scenario. The scenario should be about ${topic || 'a significant historical military or political decision point'}. Include context, situation, and 3 possible decisions with their outcomes.
 
-Format it as JSON with these properties:
+Return ONLY valid JSON like this (add additional text or explanations inside the JSON, not outside it):
 {
-  "id": "unique-id-${Date.now()}",
-  "title": "Scenario title",
-  "year": "Year or time period",
-  "leader": "Historical figure name",
-  "context": "Detailed historical context (300 words)",
-  "situation": "The specific decision point faced (200 words)",
+  "id": "${uniqueId}",
+  "title": "Scenario Title",
+  "year": "Year or Period",
+  "leader": "Historical Leader",
+  "context": "Historical context and background (2-3 paragraphs)",
+  "situation": "The decision point faced (1-2 paragraphs)",
   "decisions": [
     {
       "id": "decision-1",
-      "text": "Short decision text",
-      "description": "Longer explanation of this option",
+      "text": "First option (short)",
+      "description": "Details about this option",
       "outcomes": {
-        "description": "What happens if this choice is made (200 words)",
-        "resources": { "military": 10, "economy": -5, "morale": 0, "political": 15 },
+        "description": "Result of this choice",
+        "resources": {"military":0, "economy":0, "morale":0, "political":0},
         "nextScenarioId": "finale"
       }
     },
     {
-      "id": "decision-2",
-      "text": "Short decision text for option 2",
-      "description": "Longer explanation of this option",
+      "id": "decision-2", 
+      "text": "Second option (short)",
+      "description": "Details about this option",
       "outcomes": {
-        "description": "What happens if this choice is made (200 words)",
-        "resources": { "military": -5, "economy": 10, "morale": 5, "political": -10 },
+        "description": "Result of this choice",
+        "resources": {"military":0, "economy":0, "morale":0, "political":0},
         "nextScenarioId": "finale"
       }
     },
     {
       "id": "decision-3",
-      "text": "Short decision text for option 3",
-      "description": "Longer explanation of this option",
+      "text": "Third option (short)",
+      "description": "Details about this option",
       "outcomes": {
-        "description": "What happens if this choice is made (200 words)",
-        "resources": { "military": 0, "economy": 0, "morale": 15, "political": 5 },
+        "description": "Result of this choice",
+        "resources": {"military":0, "economy":0, "morale":0, "political":0},
         "nextScenarioId": "finale"
       }
     }
   ],
-  "historicalOutcome": "What actually happened historically",
-  "learningSummary": "A 200-word summary of the key strategic lessons from this scenario, highlighting timeless principles that can be applied to modern leadership and decision-making."
-}
+  "historicalOutcome": "What actually happened in history",
+  "learningSummary": "Strategic lessons from this scenario that apply to modern leadership"
+}`;
 
-ONLY return the JSON object with no additional text before or after.`;
-
+      console.log("Sending request to Anthropic API");
       const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
@@ -109,46 +110,68 @@ ONLY return the JSON object with no additional text before or after.`;
         })
       });
 
+      console.log("Response status:", response.status);
+      const responseText = await response.text();
+      console.log("Raw response:", responseText);
+      
       if (!response.ok) {
-        const errorData = await response.json();
-        console.error('API error details:', errorData);
-        throw new Error(`API error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
+        throw new Error(`API error: ${response.status} - ${responseText}`);
       }
 
-      const data = await response.json();
-      console.log("API response:", data);
+      // Parse the response text to JSON
+      const data = JSON.parse(responseText);
+      console.log("Parsed response data:", data);
       
       if (!data.content || !data.content[0] || !data.content[0].text) {
         throw new Error('Invalid response format from API');
       }
       
       const content = data.content[0].text;
+      console.log("Content from API:", content);
       
-      // Parse the JSON response
-      // Find the JSON object in the response (in case Claude adds extra text)
+      // Find JSON in the response (look for object between curly braces)
       const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        try {
-          const scenario = JSON.parse(jsonMatch[0]);
-          
-          // Validate the scenario object has the required fields
-          if (!scenario.id || !scenario.title || !scenario.decisions) {
-            throw new Error('Generated scenario is missing required fields');
-          }
-          
-          onNewScenario(scenario);
-          toast.success('New scenario generated!');
-        } catch (parseError) {
-          console.error('JSON parsing error:', parseError, 'Raw content:', content);
-          throw new Error('Could not parse scenario JSON');
+      if (!jsonMatch) {
+        throw new Error('Could not find valid JSON in the response');
+      }
+      
+      const jsonStr = jsonMatch[0];
+      console.log("Extracted JSON string:", jsonStr);
+      
+      // Parse the JSON
+      try {
+        const scenarioData = JSON.parse(jsonStr);
+        console.log("Parsed scenario:", scenarioData);
+        
+        // Basic validation
+        if (!scenarioData.id || !scenarioData.title || !Array.isArray(scenarioData.decisions)) {
+          throw new Error('Generated scenario is missing required fields');
         }
-      } else {
-        console.error('No JSON found in response:', content);
-        throw new Error('Could not find JSON in API response');
+        
+        // Make sure each decision has the required structure
+        scenarioData.decisions.forEach((decision: any, index: number) => {
+          if (!decision.id) decision.id = `decision-${index + 1}`;
+          if (!decision.outcomes) decision.outcomes = {};
+          if (!decision.outcomes.nextScenarioId) decision.outcomes.nextScenarioId = "finale";
+          if (!decision.outcomes.resources) {
+            decision.outcomes.resources = { military: 0, economy: 0, morale: 0, political: 0 };
+          }
+        });
+        
+        // Add learning summary if missing
+        if (!scenarioData.learningSummary) {
+          scenarioData.learningSummary = "Historical decisions provide valuable lessons for modern leadership, including the importance of understanding context, evaluating multiple options, and considering long-term consequences.";
+        }
+        
+        onNewScenario(scenarioData);
+        toast.success('New scenario generated successfully!');
+      } catch (parseError) {
+        console.error('JSON parsing error:', parseError);
+        throw new Error('Could not parse scenario JSON. Invalid format received.');
       }
     } catch (error) {
       console.error('Error generating scenario:', error);
-      toast.error(`Failed to generate scenario: ${error.message}`);
+      toast.error(`Error: ${error.message || 'Failed to generate scenario'}`);
     } finally {
       setIsGenerating(false);
     }
