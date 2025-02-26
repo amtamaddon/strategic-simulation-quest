@@ -33,6 +33,7 @@ export interface Scenario {
   backgroundImage?: string;
   historicalOutcome?: string;
   isFinale?: boolean;
+  learningSummary?: string;
 }
 
 export interface GameState {
