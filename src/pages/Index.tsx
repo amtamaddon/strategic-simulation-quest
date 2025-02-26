@@ -1,5 +1,5 @@
 
-import React, { ErrorBoundary } from 'react';
+import React from 'react';
 import { GameProvider } from '../components/GameContext';
 import GameLayout from '../components/GameLayout';
 
