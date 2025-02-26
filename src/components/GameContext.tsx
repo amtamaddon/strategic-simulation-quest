@@ -72,3 +72,77 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       decisionId: decision.id,
       resources: { ...updatedResources },
       description: outcomes.description,
+    };
+    
+    // Check if there's a strategic principle to discover
+    if (outcomes.principle && !outcomes.principle.discovered) {
+      discoverPrinciple(outcomes.principle);
+    }
+    
+    // Check if we're moving to a new scenario or the game is ending
+    const nextScenario = scenarios.find(s => s.id === outcomes.nextScenarioId);
+    const gameOver = nextScenario?.id === 'game-over' || nextScenario?.isFinale;
+    
+    // Update game state
+    setGameState(prevState => ({
+      ...prevState,
+      currentScenarioId: outcomes.nextScenarioId,
+      resources: updatedResources,
+      history: [...prevState.history, newEvent],
+      turn: prevState.turn + 1,
+      gameOver: gameOver || false
+    }));
+    
+    // Show notification for significant resource changes
+    const significantChange = Object.entries(outcomes.resources || {}).find(([_, value]) => Math.abs(value) >= 15);
+    if (significantChange) {
+      const [resource, value] = significantChange;
+      const resourceName = resource.charAt(0).toUpperCase() + resource.slice(1);
+      const message = value > 0 
+        ? `${resourceName} increased significantly!` 
+        : `${resourceName} decreased significantly!`;
+      toast(message);
+    }
+  };
+  
+  const resetGame = () => {
+    setGameState(initialGameState);
+    localStorage.removeItem('hannibalGameState');
+    toast('Game reset to beginning');
+  };
+  
+  const discoverPrinciple = (principle: StrategicPrinciple) => {
+    // Find and update the discovered principle
+    const updatedPrinciples = gameState.principles.map(p => 
+      p.id === principle.id ? { ...p, discovered: true } : p
+    );
+    
+    setGameState(prevState => ({
+      ...prevState,
+      principles: updatedPrinciples
+    }));
+    
+    // Show notification
+    toast(`Strategic Principle Discovered: ${principle.name}`);
+  };
+  
+  return (
+    <GameContext.Provider value={{ 
+      gameState, 
+      currentScenario, 
+      makeDecision, 
+      resetGame, 
+      discoverPrinciple 
+    }}>
+      {children}
+    </GameContext.Provider>
+  );
+};
+
+export const useGame = () => {
+  const context = useContext(GameContext);
+  if (context === undefined) {
+    throw new Error('useGame must be used within a GameProvider');
+  }
+  return context;
+};
