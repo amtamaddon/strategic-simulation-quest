@@ -16,8 +16,27 @@ const GameLayout: React.FC = () => {
   const [showGenerator, setShowGenerator] = useState(false);
   const [showScenarioList, setShowScenarioList] = useState(false);
   
+  // Fall back to a default scenario if currentScenario is undefined
   if (!currentScenario) {
-    return <div>Loading scenario...</div>;
+    // If we have scenarios but no current one, start the first scenario
+    if (scenarios && scenarios.length > 0) {
+      console.log("No current scenario found. Starting first available scenario:", scenarios[0].id);
+      startNewScenario(scenarios[0].id);
+      // Show loading while we transition
+      return (
+        <div className="flex items-center justify-center h-screen">
+          <p className="text-xl">Loading scenario...</p>
+        </div>
+      );
+    }
+    
+    // If no scenarios at all, show an error
+    return (
+      <div className="flex flex-col items-center justify-center h-screen">
+        <p className="text-xl mb-4">No scenarios available</p>
+        <Button onClick={resetGame}>Reset Game</Button>
+      </div>
+    );
   }
   
   return (

@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 
 interface GameContextType {
   gameState: GameState;
-  currentScenario: any;
+  currentScenario: Scenario | undefined;
   scenarios: Scenario[];
   makeDecision: (decision: Decision) => void;
   resetGame: () => void;
@@ -26,14 +26,19 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Load game state and custom scenarios from localStorage on initial render
   useEffect(() => {
+    console.log("Loading initial game state and scenarios");
+    
     // Load game state
     const savedState = localStorage.getItem('hannibalGameState');
     if (savedState) {
       try {
         const parsedState = JSON.parse(savedState);
+        console.log("Loaded saved game state:", parsedState);
         setGameState(parsedState);
       } catch (error) {
         console.error('Failed to parse saved game state:', error);
+        // Reset to initial state if there's an error
+        setGameState(initialGameState);
       }
     }
 
@@ -42,17 +47,39 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (savedScenarios) {
       try {
         const parsedScenarios = JSON.parse(savedScenarios);
+        console.log("Loaded custom scenarios:", parsedScenarios);
         setScenarios([...defaultScenarios, ...parsedScenarios]);
       } catch (error) {
         console.error('Failed to parse saved scenarios:', error);
+        // Reset to default scenarios if there's an error
+        setScenarios(defaultScenarios);
       }
     }
   }, []);
 
   // Update current scenario whenever currentScenarioId or scenarios change
   useEffect(() => {
+    console.log("Updating current scenario. ID:", gameState.currentScenarioId, "Available scenarios:", scenarios.length);
     const scenario = scenarios.find(s => s.id === gameState.currentScenarioId);
-    setCurrentScenario(scenario);
+    
+    if (scenario) {
+      console.log("Found scenario:", scenario.title);
+      setCurrentScenario(scenario);
+    } else {
+      console.warn("No scenario found with ID:", gameState.currentScenarioId);
+      // If we can't find the scenario, fall back to the first available scenario
+      if (scenarios.length > 0) {
+        console.log("Falling back to first scenario:", scenarios[0].title);
+        setCurrentScenario(scenarios[0]);
+        setGameState(prev => ({
+          ...prev,
+          currentScenarioId: scenarios[0].id
+        }));
+      } else {
+        console.error("No scenarios available");
+        setCurrentScenario(undefined);
+      }
+    }
   }, [gameState.currentScenarioId, scenarios]);
 
   // Save game state to localStorage whenever it changes
@@ -61,6 +88,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [gameState]);
 
   const makeDecision = (decision: Decision) => {
+    if (!currentScenario) {
+      console.error("Cannot make decision: no current scenario");
+      return;
+    }
+    
+    console.log("Making decision:", decision.text);
     const { outcomes } = decision;
     
     // Update resources
@@ -86,7 +119,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Create new history event
     const newEvent: GameEvent = {
       turn: gameState.turn,
-      scenarioId: currentScenario?.id || '',
+      scenarioId: currentScenario.id || '',
       decisionId: decision.id,
       resources: { ...updatedResources },
       description: outcomes.description,
@@ -98,7 +131,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     
     // Check if we're moving to a new scenario or the game is ending
-    const nextScenario = scenarios.find(s => s.id === outcomes.nextScenarioId);
+    const nextScenarioId = outcomes.nextScenarioId || "finale";
+    const nextScenario = scenarios.find(s => s.id === nextScenarioId);
     const gameOver = !nextScenario || nextScenario.id === 'game-over' || nextScenario.isFinale;
     
     // Show learning summary if we're moving to a finale or ending
@@ -112,7 +146,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Update game state
     setGameState(prevState => ({
       ...prevState,
-      currentScenarioId: outcomes.nextScenarioId,
+      currentScenarioId: nextScenarioId,
       resources: updatedResources,
       history: [...prevState.history, newEvent],
       turn: prevState.turn + 1,
@@ -121,6 +155,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
   
   const resetGame = () => {
+    console.log("Resetting game to initial state");
     setGameState(initialGameState);
     localStorage.removeItem('hannibalGameState');
     toast('Game reset to beginning');
@@ -170,13 +205,29 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Start the new scenario
     startNewScenario(preparedScenario.id);
+    
+    toast.success(`New scenario added: ${preparedScenario.title}`);
   };
 
   const startNewScenario = (scenarioId: string) => {
+    console.log("Starting new scenario:", scenarioId);
+    
+    if (!scenarioId || !scenarios.some(s => s.id === scenarioId)) {
+      console.error("Invalid scenario ID:", scenarioId);
+      toast.error("Could not start scenario - invalid ID");
+      return;
+    }
+    
     setGameState({
       ...initialGameState,
       currentScenarioId: scenarioId
     });
+    
+    // Find and set the current scenario immediately to prevent loading flicker
+    const newScenario = scenarios.find(s => s.id === scenarioId);
+    if (newScenario) {
+      setCurrentScenario(newScenario);
+    }
   };
   
   return (
